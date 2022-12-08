@@ -337,6 +337,7 @@ $awardset['shame_death_strike']['sql'][0]          = "select playerID, countryCo
 //
 $allweaps_id = md5(time()); // haha, i must be a little paranoic xD
 
+/*
 $awardset['accuracy_set_table']['sql'][0]    = "drop table {$tp}awardsweaponshots";
 
 $awardset['accuracy_set_table']['sql'][1]    = "CREATE TABLE {$tp}awardsweaponshots (
@@ -426,5 +427,6 @@ $awardset['accuracyALLWEAPONS']['sql'][0]               = "select {$tp}playerpro
                                                            ";
 
 
+*/
 
 ?>

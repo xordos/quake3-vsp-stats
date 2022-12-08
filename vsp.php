@@ -2386,7 +2386,7 @@ function populateIp2countryTable(): void
 }
 
 //change: database-driven savestate
-function save_savestate(&$parser): void
+function save_savestate(&$parser)
 {
   $parser->logdata["last_shutdown_end_position"] = ftell($parser->logFileHandle);
   $seekResult = fseek($parser->logFileHandle, -LOG_READ_SIZE, SEEK_CUR);
@@ -2406,16 +2406,24 @@ function save_savestate(&$parser): void
   $logfile = $db->qstr(
     isset($parser->original_log) ? $parser->original_log : $parser->logFilePath
   );
-  $sql = "INSERT INTO {$GLOBALS["cfg"]["db"]["table_prefix"]}savestate SET `logfile` = {$logfile}";
-  $rs = $db->Execute($sql);
+  //$sql = "INSERT INTO {$GLOBALS["cfg"]["db"]["table_prefix"]}savestate SET `logfile` = {$logfile}";
+  //$rs = $db->Execute($sql);
   $value = $db->qstr(
     "\$this->logdata['last_shutdown_hash']='{$parser->logdata["last_shutdown_hash"]}';\n" .
       "\$this->logdata['last_shutdown_end_position']={$parser->logdata["last_shutdown_end_position"]};"
   );
-  $sql = "UPDATE {$GLOBALS["cfg"]["db"]["table_prefix"]}savestate SET `value` = {$value}";
+  //$sql = "UPDATE {$GLOBALS["cfg"]["db"]["table_prefix"]}savestate SET `value` = {$value}";
+  //$rs = $db->Execute($sql);
+  $sql = "SELECT count(*) FROM {$GLOBALS['cfg']['db']['table_prefix']}savestate WHERE `logfile` = {$logfile}";
+  $qResult = $db->Execute($sql);
+  if ($qResult->fields[0] > 0) {
+      $sql = "UPDATE {$GLOBALS['cfg']['db']['table_prefix']}savestate SET `value` = {$value} where `logfile` = {$logfile}";
+  } else {
+      $sql = "INSERT INTO {$GLOBALS['cfg']['db']['table_prefix']}savestate SET `logfile` = {$logfile},`value` = {$value}";
+  }
   $rs = $db->Execute($sql);
-}
 
+}
 function check_savestate(&$parser): void
 {
   echo "Verifying savestate\n";
