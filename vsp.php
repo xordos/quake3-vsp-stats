@@ -1637,11 +1637,15 @@
       //$V3b2eb2c1 = fopen('./logdata/savestate_' . Fff47f8ac($parser->Vd6d33a32) . '.inc.php', "wb");
       global $V9c1ebee8; // db
       $logfile = $V9c1ebee8->qstr(isset($parser->original_log) ? $parser->original_log : $parser->Vd6d33a32);
-      $sql = "INSERT INTO {$GLOBALS['cfg']['db']['table_prefix']}savestate SET `logfile` = {$logfile}";
-      $V3a2d7564 = $V9c1ebee8->Execute($sql);
       $value = $V9c1ebee8->qstr("\$this->logdata['last_shutdown_hash']='{$parser->logdata['last_shutdown_hash']}';\n".
             "\$this->logdata['last_shutdown_end_position']={$parser->logdata['last_shutdown_end_position']};");
-      $sql = "UPDATE {$GLOBALS['cfg']['db']['table_prefix']}savestate SET `value` = {$value}";
+      $sql = "SELECT count(*) FROM {$GLOBALS['cfg']['db']['table_prefix']}savestate WHERE `logfile` = {$logfile}";
+      $qResult = $V9c1ebee8->Execute($sql);
+      if ($qResult->fields[0] > 0) {
+          $sql = "UPDATE {$GLOBALS['cfg']['db']['table_prefix']}savestate SET `value` = {$value} where `logfile` = {$logfile}";
+      } else {
+          $sql = "INSERT INTO {$GLOBALS['cfg']['db']['table_prefix']}savestate SET `logfile` = {$logfile},`value` = {$value}";
+      }
       $V3a2d7564 = $V9c1ebee8->Execute($sql);
   }
   function check_savestate(&$parser)
