@@ -440,7 +440,7 @@ class VSPParserQ3A
   }
 
   // Convert color codes (delegates to XP conversion if gametype is xp).
-  function convertColorCodes($str)
+  public function convertColorCodes($str)
   {
     // parece eliminar efectos del nombre
     if (!strcmp($this->config["gametype"], "xp")) {
