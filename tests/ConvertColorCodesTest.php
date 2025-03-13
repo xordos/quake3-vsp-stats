@@ -6,16 +6,16 @@ require_once __DIR__ . '/../vsp-q3a.php'; // Include the VSPParserQ3A class
 
 class ConvertColorCodesTest extends TestCase
 {
-    protected static $statsAggregator;
-    protected static $statsProcessor;
+    protected static $gameDataProcessor;
+    protected static $playerSkillProcessor;
     protected $q3aParser;
     protected $xpParser;
     protected $xpParser103;
 
     public static function setUpBeforeClass(): void
     {
-        self::$statsAggregator = new StatsAggregator();
-        self::$statsProcessor = new StatsProcessor();
+        self::$gameDataProcessor = new GameDataProcessor();
+        self::$playerSkillProcessor = new PlayerSkillProcessor();
     }
 
     protected function setUp(): void
@@ -24,9 +24,9 @@ class ConvertColorCodesTest extends TestCase
         $xpConfig = ["gametype" => "xp"];
         $xpConfig103 = ["gametype" => "xp", "xp_version" => 103];
 
-        $this->q3aParser = new VSPParserQ3A($q3aConfig, self::$statsAggregator, self::$statsProcessor);
-        $this->xpParser = new VSPParserQ3A($xpConfig, self::$statsAggregator, self::$statsProcessor);
-        $this->xpParser103 = new VSPParserQ3A($xpConfig103, self::$statsAggregator, self::$statsProcessor);
+        $this->q3aParser = new VSPParserQ3A($q3aConfig, self::$gameDataProcessor, self::$playerSkillProcessor);
+        $this->xpParser = new VSPParserQ3A($xpConfig, self::$gameDataProcessor, self::$playerSkillProcessor);
+        $this->xpParser103 = new VSPParserQ3A($xpConfig103, self::$gameDataProcessor, self::$playerSkillProcessor);
     }
 
     public function testQ3aConvertAllColorCodes()
@@ -107,6 +107,6 @@ class ConvertColorCodesTest extends TestCase
     }
 }
 
-// Mock classes for StatsAggregator and StatsProcessor
-class StatsAggregator {}
-class StatsProcessor {}
+// Mock classes for GameDataProcessor and PlayerSkillProcessor
+class GameDataProcessor {}
+class PlayerSkillProcessor {}

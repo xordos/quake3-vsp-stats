@@ -393,7 +393,7 @@ class VSPParserQ3A
   }
 
   // Convert XP-specific color codes.
-  private function convertXPColorCodes(string $str): string
+  public function convertXPColorCodes(string $str): string
   {
     //$colors = array("black", "red", "lime", "yellow", "blue", "aqua", "fuchsia", "white", "orange");
     //change: special chars
@@ -457,7 +457,7 @@ class VSPParserQ3A
   }
 
   // Convert color codes (delegates to XP conversion if gametype is xp).
-  private function convertColorCodes(string $str): string
+  public function convertColorCodes(string $str): string
   {
     // parece eliminar efectos del nombre
     if (!strcmp($this->config["gametype"], "xp")) {
