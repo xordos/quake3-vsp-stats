@@ -28,6 +28,16 @@ tasks:
     cmds:
       - "{{.PHP}} vsp.php -c pub/configs/cfg-default.php -l q3a -p savestate 1 baseq3.log"
 
+  import-logs:xp:
+    desc: Import xp logs
+    cmds:
+      - "{{.PHP}} vsp.php -c pub/configs/cfg-default.php -l q3a-xp -p savestate 1 xp.log"
+
+  import-logs:osp:
+    desc: Import osp logs
+    cmds:
+      - "{{.PHP}} vsp.php -c pub/configs/cfg-default.php -l q3a-osp -p savestate 1 osp.log"
+
 
   # Testing and quality tasks
   test:
