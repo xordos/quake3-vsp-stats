@@ -2,28 +2,35 @@
 /* vsp stats processor, copyright 2004-2005, myrddin8 AT gmail DOT com (a924cb279be8cb6089387d402288c9f2) */
 class VSPParserQ3A
 {
-  var $config;
-  var $statsAggregator;
-  var $statsProcessor;
-  var $playerInfo;
-  var $miscStats;
-  var $translationData;
-  var $rawTimestamp;
-  var $baseTime;
-  var $gameInProgress;
-  var $logFileHandle;
-  var $logFilePath;
-  var $logdata;
-  var $currentFilePosition;
-  var $gameStartFilePosition;
+  private array $config = [];
+  private GameDataProcessor $gameDataProcessor;
+  private PlayerSkillProcessor $playerSkillProcessor;
+  private array $playerInfo = [];
+  private array $miscStats = [];
+  private array $translationData = [];
+  private string $rawTimestamp = "";
+  private array $baseTime = [];
+  private bool $gameInProgress = false;
+  public $logFileHandle = null;
+  public string $logFilePath = "";
+  public array $logdata = [];
+  private int $currentFilePosition = 0;
+  private int $gameStartFilePosition = 0;
+  public string $original_log = "";
+  private array $has_acc_stats = [];
+
+  // Class constant for log read size.
+  private const LOG_READ_SIZE = 1024;
 
   // Constructor: initialize configuration, aggregator and processor.
-  function __construct($configData, &$statsAggregator, &$statsProcessor)
-  {
-    define("LOG_READ_SIZE", 1024);
+  public function __construct(
+    array $configData,
+    GameDataProcessor $gameDataProcessor,
+    PlayerSkillProcessor $playerSkillProcessor
+  ) {
     $this->initializeConfig($configData);
-    $this->statsAggregator = $statsAggregator;
-    $this->statsProcessor = $statsProcessor;
+    $this->gameDataProcessor = $gameDataProcessor;
+    $this->playerSkillProcessor = $playerSkillProcessor;
     $this->miscStats = [];
     $this->translationData = [];
     $this->playerInfo = [];
@@ -200,7 +207,7 @@ class VSPParserQ3A
   }
 
   // Initialize configuration from given data array.
-  function initializeConfig($configData)
+  private function initializeConfig(array $configData): void
   {
     $this->config["savestate"] = 0;
     $this->config["gametype"] = "";
@@ -224,7 +231,7 @@ class VSPParserQ3A
   }
 
   // Reset auxiliary variables (e.g. date/time parts) for a new game session.
-  function resetSessionData()
+  private function resetSessionData(): void
   {
     // supongo que inicia variables auxiliares para la fecha
     unset($this->playerInfo);
@@ -240,7 +247,7 @@ class VSPParserQ3A
   }
 
   // Write shutdown savestate information – unused.
-  function saveShutdownState()
+  private function saveShutdownState(): void
   {
     // escribe información del savestate - unused
     $this->logdata["last_shutdown_end_position"] = ftell($this->logFileHandle);
@@ -276,7 +283,7 @@ class VSPParserQ3A
   }
 
   // Verify savestate (unused).
-  function verifySavestate()
+  private function verifySavestate(): void
   {
     // savestate check - unused
     echo "Verifying savestate\n";
@@ -312,7 +319,7 @@ class VSPParserQ3A
   }
 
   // Open and process the log file.
-  function processLogFile($logFileName)
+  public function processLogFile(string $logFileName): void
   {
     $this->logFilePath = realpath($logFileName);
     if (!file_exists($this->logFilePath)) {
@@ -378,7 +385,7 @@ class VSPParserQ3A
   }
 
   // Remove color codes from a string.
-  function removeColorCodes($str)
+  private function removeColorCodes(string $str): string
   {
     $cleanStr = preg_replace("/\\^[xX][\da-fA-F]{6}/", "", $str);
     $cleanStr = preg_replace("/\\^[^\\^]/", "", $cleanStr);
@@ -386,7 +393,7 @@ class VSPParserQ3A
   }
 
   // Convert XP-specific color codes.
-  function convertXPColorCodes($str)
+  private function convertXPColorCodes(string $str): string
   {
     //$colors = array("black", "red", "lime", "yellow", "blue", "aqua", "fuchsia", "white", "orange");
     //change: special chars
@@ -450,7 +457,7 @@ class VSPParserQ3A
   }
 
   // Convert color codes (delegates to XP conversion if gametype is xp).
-  public function convertColorCodes($str)
+  private function convertColorCodes(string $str): string
   {
     // parece eliminar efectos del nombre
     if (!strcmp($this->config["gametype"], "xp")) {
@@ -534,7 +541,7 @@ class VSPParserQ3A
   }
 
   // Lookup a player by matching the given id against stored playerInfo.
-  function lookupPlayerById($playerId)
+  private function lookupPlayerById(string $playerId): string
   {
     foreach ($this->playerInfo as $key => $pInfo) {
       if (!strcmp($this->playerInfo[$key]["id"], $playerId)) {
@@ -545,7 +552,7 @@ class VSPParserQ3A
   }
 
   // Lookup a player by matching the given name.
-  function lookupPlayerByName($name)
+  private function lookupPlayerByName(string $name): string
   {
     foreach ($this->playerInfo as $key => $pInfo) {
       if (!strcmp($this->playerInfo[$key]["name"], $name)) {
@@ -556,7 +563,7 @@ class VSPParserQ3A
   }
 
   // Generate a formatted timestamp based on the raw timestamp and base time parts.
-  function generateTimestamp()
+  private function generateTimestamp(): string
   {
     // devuelve hora del servidor como timestamp
     if (
@@ -612,7 +619,7 @@ class VSPParserQ3A
   }
 
   // Process server time line.
-  function processServerTime(&$line)
+  private function processServerTime(string &$line): bool
   {
     // hora del servidor
     if (
@@ -630,7 +637,7 @@ class VSPParserQ3A
     $this->baseTime["hour"] = $match[4];
     $this->baseTime["min"] = $match[5];
     $this->baseTime["sec"] = $match[6];
-    $this->statsProcessor->setGameData(
+    $this->playerSkillProcessor->setGameData(
       "_v_time_start",
       date(
         "Y-m-d H:i:s",
@@ -648,7 +655,7 @@ class VSPParserQ3A
   }
 
   // Process game initialization.
-  function processGameInit(&$line)
+  private function processGameInit(string &$line): bool
   {
     // es inicio de juego
     if (!preg_match("/^InitGame: (.*)/", $line, $match)) {
@@ -657,8 +664,8 @@ class VSPParserQ3A
     if ($this->gameInProgress) {
       debugPrint("corrupt game (no Shutdown after Init), ignored\n");
       debugPrint("{$this->rawTimestamp} $line\n");
-      $this->statsProcessor->updatePlayerStreaks();
-      $this->statsProcessor->clearProcessorData();
+      $this->playerSkillProcessor->updatePlayerStreaks();
+      $this->playerSkillProcessor->clearProcessorData();
     }
     $this->gameInProgress = true;
     $this->gameStartFilePosition = $this->currentFilePosition;
@@ -693,18 +700,18 @@ class VSPParserQ3A
       }
       $serverVarsArray[$varName] = $varValue; // crea matriz de variables
     }
-    $this->statsProcessor->startGameAnalysis(); // muestra mensaje de inicio de análisis de juego
+    $this->playerSkillProcessor->startGameAnalysis();
     foreach ($serverVarsArray as $key => $value) {
-      $this->statsProcessor->setGameData($key, $value);
+      $this->playerSkillProcessor->setGameData($key, $value);
     }
-    $this->statsProcessor->setGameData(
+    $this->playerSkillProcessor->setGameData(
       "_v_time_start",
       $this->generateTimestamp()
     );
-    $this->statsProcessor->setGameData("_v_map", $serverVarsArray["mapname"]);
-    $this->statsProcessor->setGameData("_v_game", "q3a");
-    $this->statsProcessor->setGameData("_v_mod", $serverVarsArray["gamename"]);
-    $this->statsProcessor->setGameData(
+    $this->playerSkillProcessor->setGameData("_v_map", $serverVarsArray["mapname"]);
+    $this->playerSkillProcessor->setGameData("_v_game", "q3a");
+    $this->playerSkillProcessor->setGameData("_v_mod", $serverVarsArray["gamename"]);
+    $this->playerSkillProcessor->setGameData(
       "_v_game_type",
       $serverVarsArray["g_gametype"]
     );
@@ -719,7 +726,7 @@ class VSPParserQ3A
   }
 
   // Process client userinfo change.
-  function processClientUserinfoChanged(&$line)
+  private function processClientUserinfoChanged(string &$line): bool
   {
     // cambio de la información del player
     if (!preg_match("/^ClientUserinfoChanged: (\d+) (.*)/", $line, $match)) {
@@ -743,17 +750,17 @@ class VSPParserQ3A
           $this->config["trackID"] == "playerName" &&
           strcmp($this->playerInfo[$clientId]["id"], $varValue) != 0
         ) {
-          $this->statsProcessor->updatePlayerDataField(
+          $this->playerSkillProcessor->updatePlayerDataField(
             "sto",
             $this->playerInfo[$clientId]["id"],
             "alias",
             $newName
           );
-          $this->statsProcessor->updatePlayerName(
+          $this->playerSkillProcessor->updatePlayerName(
             $this->playerInfo[$clientId]["id"],
             $newName
           );
-          $this->statsProcessor->resolvePlayerIDConflict(
+          $this->playerSkillProcessor->resolvePlayerIDConflict(
             $this->playerInfo[$clientId]["id"],
             $varValue
           );
@@ -763,13 +770,13 @@ class VSPParserQ3A
           isset($this->playerInfo[$clientId]["name"]) &&
           strcmp($this->playerInfo[$clientId]["name"], $newName) != 0
         ) {
-          $this->statsProcessor->updatePlayerDataField(
+          $this->playerSkillProcessor->updatePlayerDataField(
             "sto",
             $this->playerInfo[$clientId]["id"],
             "alias",
             $newName
           );
-          $this->statsProcessor->updatePlayerName(
+          $this->playerSkillProcessor->updatePlayerName(
             $this->playerInfo[$clientId]["id"],
             $newName
           );
@@ -793,7 +800,7 @@ class VSPParserQ3A
             "Use \$cfg['parser']['trackID'] = 'playerName'; in your config\n"
           );
           debugPrint("{$this->rawTimestamp} $line\n");
-          $this->statsProcessor->clearProcessorData();
+          $this->playerSkillProcessor->clearProcessorData();
           $this->gameInProgress = false;
           return true;
         }
@@ -804,17 +811,17 @@ class VSPParserQ3A
         if ($this->playerInfo[$clientId]["team"] != "3") {
           // no es espectador
           //change: team control
-          if (!isset($this->statsProcessor->players_team)) {
-            $this->statsProcessor->players_team = [];
+          if (!isset($this->playerSkillProcessor->players_team)) {
+            $this->playerSkillProcessor->players_team = [];
             $this->has_acc_stats = [];
           }
-          $this->statsProcessor->players_team[$clientId] = [
+          $this->playerSkillProcessor->players_team[$clientId] = [
             "team" => $this->playerInfo[$clientId]["team"],
             "connected" => true,
           ];
           $this->has_acc_stats[$clientId] = false;
           //endchange
-          $this->statsProcessor->updatePlayerTeam(
+          $this->playerSkillProcessor->updatePlayerTeam(
             $this->playerInfo[$clientId]["id"],
             $this->playerInfo[$clientId]["team"]
           );
@@ -836,7 +843,7 @@ class VSPParserQ3A
   }
 
   // Process client begin event.
-  function processClientBegin(&$line)
+  private function processClientBegin(string &$line): bool
   {
     // si es inicio de cliente
     if (!preg_match("/^ClientBegin: (\d+)/", $line, $match)) {
@@ -853,7 +860,7 @@ class VSPParserQ3A
           $tld = isset($this->playerInfo[$clientId]["rtld"])
             ? $this->playerInfo[$clientId]["rtld"]
             : @$this->playerInfo[$clientId]["tld"];
-          $this->statsProcessor->initializePlayerData(
+          $this->playerSkillProcessor->initializePlayerData(
             $this->playerInfo[$clientId]["id"],
             $this->playerInfo[$clientId]["name"],
             $ip,
@@ -862,21 +869,21 @@ class VSPParserQ3A
         }
         if (isset($this->playerInfo[$clientId]["team"])) {
           // si está en un team
-          $this->statsProcessor->updatePlayerTeam(
+          $this->playerSkillProcessor->updatePlayerTeam(
             $this->playerInfo[$clientId]["id"],
             $this->playerInfo[$clientId]["team"]
           );
         }
         if (isset($this->playerInfo[$clientId]["role"])) {
           // si existe el rol?
-          $this->statsProcessor->setPlayerRole(
+          $this->playerSkillProcessor->setPlayerRole(
             $this->playerInfo[$clientId]["id"],
             $this->playerInfo[$clientId]["role"]
           );
         }
         if (isset($this->playerInfo[$clientId]["icon"])) {
           // guarda ícono
-          $this->statsProcessor->updatePlayerDataField(
+          $this->playerSkillProcessor->updatePlayerDataField(
             "sto",
             $this->playerInfo[$clientId]["id"],
             "icon",
@@ -884,8 +891,7 @@ class VSPParserQ3A
           );
         }
         if (isset($this->playerInfo[$clientId]["ip"])) {
-          // si tiene ip
-          $this->statsProcessor->updatePlayerDataField(
+          $this->playerSkillProcessor->updatePlayerDataField(
             "sto",
             $this->playerInfo[$clientId]["id"],
             "ip",
@@ -893,8 +899,7 @@ class VSPParserQ3A
           );
         }
         if (isset($this->playerInfo[$clientId]["guid"])) {
-          // si tiene guid
-          $this->statsProcessor->updatePlayerDataField(
+          $this->playerSkillProcessor->updatePlayerDataField(
             "sto",
             $this->playerInfo[$clientId]["id"],
             "guid",
@@ -902,8 +907,7 @@ class VSPParserQ3A
           );
         }
         if (isset($this->playerInfo[$clientId]["tld"])) {
-          // si tiene tld
-          $this->statsProcessor->updatePlayerDataField(
+          $this->playerSkillProcessor->updatePlayerDataField(
             "sto",
             $this->playerInfo[$clientId]["id"],
             "tld",
@@ -918,7 +922,7 @@ class VSPParserQ3A
   }
 
   // Process kill event.
-  function processKillEvent(&$line)
+  private function processKillEvent(string &$line): bool
   {
     // si es notificación de frag
     if (
@@ -948,15 +952,15 @@ class VSPParserQ3A
     ) {
       // sólo si los 2 players existen
       //change: team control
-      if (isset($this->statsProcessor->players_team)) {
-        $this->statsProcessor->processKillEvent(
+      if (isset($this->playerSkillProcessor->players_team)) {
+        $this->playerSkillProcessor->processKillEvent(
           $attacker,
           $victim,
           $weapon,
           $this->playerInfo
         );
       } else {
-        $this->statsProcessor->processKillEvent(
+        $this->playerSkillProcessor->processKillEvent(
           $this->playerInfo[$attacker]["id"],
           $victim,
           $weapon
@@ -968,7 +972,7 @@ class VSPParserQ3A
   }
 
   // Process item pickup event.
-  function processItemPickup(&$line)
+  private function processItemPickup(string &$line): bool
   {
     // si es obtención de item
     if (!preg_match("/^Item: (\d+) (.*)/", $line, $match)) {
@@ -980,7 +984,7 @@ class VSPParserQ3A
     $item = preg_replace("/weapon_/", "weapon|", $item, 1);
     $item = preg_replace("/item_/", "item|", $item, 1);
     if (isset($this->playerInfo[$clientId]["id"])) {
-      $this->statsProcessor->updatePlayerEvent(
+      $this->playerSkillProcessor->updatePlayerEvent(
         $clientId,
         $item,
         1,
@@ -991,7 +995,7 @@ class VSPParserQ3A
   }
 
   // Process client chat message.
-  function processClientChat(&$line)
+  private function processClientChat(string &$line): bool
   {
     // si es chat del cliente
     if (!preg_match("/^say: (.+): /U", $line, $match)) {
@@ -1002,13 +1006,13 @@ class VSPParserQ3A
     $clientKey = $this->lookupPlayerByName($this->convertColorCodes($namePart));
     if (strlen($clientKey) > 0) {
       $chatMsg = $this->removeColorCodes($chatMsg);
-      $this->statsProcessor->updatePlayerDataField(
+      $this->playerSkillProcessor->updatePlayerDataField(
         "sto_glo",
         $this->playerInfo[$clientKey]["id"],
         "chat",
         $chatMsg
       );
-      $this->statsProcessor->updatePlayerQuote(
+      $this->playerSkillProcessor->updatePlayerQuote(
         $this->playerInfo[$clientKey]["id"],
         $chatMsg
       );
@@ -1017,7 +1021,7 @@ class VSPParserQ3A
   }
 
   // Process client connect event.
-  function processClientConnect(&$line)
+  private function processClientConnect(string &$line): bool
   {
     // si es conección de cliente
     if (!preg_match("/^ClientConnect: (\d+)/", $line, $match)) {
@@ -1031,22 +1035,22 @@ class VSPParserQ3A
   }
 
   // Process client disconnect event.
-  function processClientDisconnect(&$line)
+  private function processClientDisconnect(string &$line): bool
   {
     // si es desconexión de cliente
     if (!preg_match("/^ClientDisconnect: (\d+)/", $line, $match)) {
       return false;
     }
     //change: team control
-    if (isset($this->statsProcessor->players_team)) {
-      $this->statsProcessor->players_team[$match[1]]["connected"] = false;
+    if (isset($this->playerSkillProcessor->players_team)) {
+      $this->playerSkillProcessor->players_team[$match[1]]["connected"] = false;
     }
     //endchange
     return true;
   }
 
   // Process game shutdown.
-  function processGameShutdown(&$line)
+  private function processGameShutdown(string &$line): bool
   {
     // si es finalización de juego
     if (!preg_match("/^ShutdownGame:/", $line, $match)) {
@@ -1058,34 +1062,34 @@ class VSPParserQ3A
       save_savestate($this);
       //endchange
     }
-    $this->statsProcessor->updatePlayerStreaks(); // actualiza los streaks de los jugadores
+    $this->playerSkillProcessor->updatePlayerStreaks(); // actualiza los streaks de los jugadores
     //change: launch skills events
-    $this->statsProcessor->launch_skill_events();
+    $this->playerSkillProcessor->launch_skill_events();
     //endchange
-    $this->statsAggregator->storeGameData(
-      $this->statsProcessor->getPlayerStats(),
-      $this->statsProcessor->getGameData()
+    $this->gameDataProcessor->storeGameData(
+      $this->playerSkillProcessor->getPlayerStats(),
+      $this->playerSkillProcessor->getGameData()
     ); // actualiza los datos de los jugadores
-    $this->statsProcessor->clearProcessorData(); // limpieza de variables
+    $this->playerSkillProcessor->clearProcessorData(); // limpieza de variables
     $this->gameInProgress = false; // flag de juego en proceso
     return true;
   }
 
-  // Process warmup (ignored) event.
-  function processWarmup(&$line)
+  // Process warmup event.
+  private function processWarmup(string &$line): bool
   {
     // si es juego de calentamiento, ignorado
     if (!preg_match("/^Warmup:/", $line, $match)) {
       return false;
     }
     debugPrint("warmup game, ignored\n");
-    $this->statsProcessor->clearProcessorData();
+    $this->playerSkillProcessor->clearProcessorData();
     $this->gameInProgress = false;
     return true;
   }
 
   // Process team score and game end events.
-  function processTeamScoreLine(&$line)
+  private function processTeamScoreLine(string &$line): bool
   {
     // score del partido
     if (!preg_match("/^red:(\d+) *blue:(\d+)/", $line, $match)) {
@@ -1108,26 +1112,25 @@ class VSPParserQ3A
     ) {
       $GLOBALS["skillset"]["event"]["team|score"] = 0.0;
     }
-    $this->statsProcessor->updateTeamEventSkill("1", "team|score", $match[1]); // les asigna el score al equipo rojo
-    $this->statsProcessor->updateTeamEventSkill("2", "team|score", $match[2]); // les asigna el score al equipo azul
+    $this->playerSkillProcessor->updateTeamEventSkill("1", "team|score", $match[1]); // les asigna el score al equipo rojo
+    $this->playerSkillProcessor->updateTeamEventSkill("2", "team|score", $match[2]); // les asigna el score al equipo azul
     $GLOBALS["skillset"]["event"]["team|score"] = $tmp;
     //endchange
     if (intval($match[1]) > intval($match[2])) {
       // gana el rojo
-      $this->statsProcessor->updateTeamEventSkill("1", "team|wins", 1);
-      $this->statsProcessor->updateTeamEventSkill("2", "team|loss", 1);
+      $this->playerSkillProcessor->updateTeamEventSkill("1", "team|wins", 1);
+      $this->playerSkillProcessor->updateTeamEventSkill("2", "team|loss", 1);
     } elseif (intval($match[1]) < intval($match[2])) {
       // gana el azul
-      $this->statsProcessor->updateTeamEventSkill("1", "team|loss", 1);
-      $this->statsProcessor->updateTeamEventSkill("2", "team|wins", 1);
+      $this->playerSkillProcessor->updateTeamEventSkill("1", "team|loss", 1);
+      $this->playerSkillProcessor->updateTeamEventSkill("2", "team|wins", 1);
     }
     return true;
   }
 
   // Process player score at game end.
-  function processPlayerScore(&$line)
+  private function processPlayerScore(string &$line): bool
   {
-    // puntuación del player al finalizar el juego
     if (
       !preg_match(
         "/^score: (-?\d+) +ping: (\d+) +client: (\d+)/",
@@ -1142,22 +1145,21 @@ class VSPParserQ3A
     $clientId = $match[3]; // id
     if (isset($this->playerInfo[$clientId])) {
       //change: team control
-      if (isset($this->statsProcessor->players_team)) {
-        $this->statsProcessor->updatePlayerEvent(
+      if (isset($this->playerSkillProcessor->players_team)) {
+        $this->playerSkillProcessor->updatePlayerEvent(
           $clientId,
           "score",
           $score,
           $this->playerInfo
         );
       } else {
-        $this->statsProcessor->updatePlayerEvent(
+        $this->playerSkillProcessor->updatePlayerEvent(
           $this->playerInfo[$clientId]["id"],
           "score",
           $score
         );
       }
-      //endchange
-      $this->statsProcessor->updatePlayerDataField(
+      $this->playerSkillProcessor->updatePlayerDataField(
         "avg",
         $this->playerInfo[$clientId]["id"],
         "ping",
@@ -1168,24 +1170,24 @@ class VSPParserQ3A
   }
 
   // Process CTF awards.
-  function processCTFAwards(&$line)
+  private function processCTFAwards(string &$line): bool
   {
     if (preg_match("/^AWARD_FlagRecovery: (\d+)/", $line, $match)) {
-      $this->statsProcessor->updatePlayerEvent(
+      $this->playerSkillProcessor->updatePlayerEvent(
         $this->playerInfo[$match[1]]["id"],
         "CTF|Flag_Return",
         1
       );
       return true;
     } elseif (preg_match("/^AWARD_FlagSteal: (\d+)/", $line, $match)) {
-      $this->statsProcessor->updatePlayerEvent(
+      $this->playerSkillProcessor->updatePlayerEvent(
         $this->playerInfo[$match[1]]["id"],
         "CTF|Flag_Pickup",
         1
       );
       return true;
     } elseif (preg_match("/^AWARD_CarrierKill: (\d+)/", $line, $match)) {
-      $this->statsProcessor->updatePlayerEvent(
+      $this->playerSkillProcessor->updatePlayerEvent(
         $this->playerInfo[$match[1]]["id"],
         "CTF|Kill_Carrier",
         1
@@ -1194,21 +1196,21 @@ class VSPParserQ3A
     } elseif (
       preg_match("/^AWARD_CarrierDangerProtect: (\d+)/", $line, $match)
     ) {
-      $this->statsProcessor->updatePlayerEvent(
+      $this->playerSkillProcessor->updatePlayerEvent(
         $this->playerInfo[$match[1]]["id"],
         "CTF|Defend_Hurt_Carrier",
         1
       );
       return true;
     } elseif (preg_match("/^AWARD_CarrierProtection: (\d+)/", $line, $match)) {
-      $this->statsProcessor->updatePlayerEvent(
+      $this->playerSkillProcessor->updatePlayerEvent(
         $this->playerInfo[$match[1]]["id"],
         "CTF|Defend_Carrier",
         1
       );
       return true;
     } elseif (preg_match("/^AWARD_FlagDefense: (\d+)/", $line, $match)) {
-      $this->statsProcessor->updatePlayerEvent(
+      $this->playerSkillProcessor->updatePlayerEvent(
         $this->playerInfo[$match[1]]["id"],
         "CTF|Defend_Flag",
         1
@@ -1217,21 +1219,21 @@ class VSPParserQ3A
     } elseif (
       preg_match("/^AWARD_FlagCarrierKillAssist: (\d+)/", $line, $match)
     ) {
-      $this->statsProcessor->updatePlayerEvent(
+      $this->playerSkillProcessor->updatePlayerEvent(
         $this->playerInfo[$match[1]]["id"],
         "CTF|Flag_Assist_Frag",
         1
       );
       return true;
     } elseif (preg_match("/^AWARD_FlagCaptureAssist: (\d+)/", $line, $match)) {
-      $this->statsProcessor->updatePlayerEvent(
+      $this->playerSkillProcessor->updatePlayerEvent(
         $this->playerInfo[$match[1]]["id"],
         "CTF|Flag_Assist_Return",
         1
       );
       return true;
     } elseif (preg_match("/^AWARD_FlagCapture: (\d+)/", $line, $match)) {
-      $this->statsProcessor->updatePlayerEvent(
+      $this->playerSkillProcessor->updatePlayerEvent(
         $this->playerInfo[$match[1]]["id"],
         "CTF|Flag_Capture",
         1
@@ -1242,7 +1244,7 @@ class VSPParserQ3A
   }
 
   // Process team scores and finalize game stats.
-  function processTeamScoreAndGameEnd(&$line)
+  private function processTeamScoreAndGameEnd(string &$line): bool
   {
     if (
       preg_match("/^processStatsGameTypesOSPClanArena_EndGame/", $line, $match)
@@ -1250,7 +1252,7 @@ class VSPParserQ3A
       if (isset($this->miscStats["score"])) {
         foreach ($this->miscStats["score"] as $clientKey => $score) {
           if (isset($this->playerInfo[$clientKey])) {
-            $this->statsProcessor->updatePlayerEvent(
+            $this->playerSkillProcessor->updatePlayerEvent(
               $this->playerInfo[$clientKey]["id"],
               "score",
               $score
@@ -1262,12 +1264,12 @@ class VSPParserQ3A
         isset($this->miscStats["team_score"]["red"]) &&
         isset($this->miscStats["team_score"]["blue"])
       ) {
-        $this->statsProcessor->updateTeamEventSkill(
+        $this->playerSkillProcessor->updateTeamEventSkill(
           "1",
           "team|score",
           $this->miscStats["team_score"]["red"]
         );
-        $this->statsProcessor->updateTeamEventSkill(
+        $this->playerSkillProcessor->updateTeamEventSkill(
           "2",
           "team|score",
           $this->miscStats["team_score"]["blue"]
@@ -1276,14 +1278,14 @@ class VSPParserQ3A
           intval($this->miscStats["team_score"]["red"]) >
           intval($this->miscStats["team_score"]["blue"])
         ) {
-          $this->statsProcessor->updateTeamEventSkill("1", "team|wins", 1);
-          $this->statsProcessor->updateTeamEventSkill("2", "team|loss", 1);
+          $this->playerSkillProcessor->updateTeamEventSkill("1", "team|wins", 1);
+          $this->playerSkillProcessor->updateTeamEventSkill("2", "team|loss", 1);
         } elseif (
           intval($this->miscStats["team_score"]["red"]) <
           intval($this->miscStats["team_score"]["blue"])
         ) {
-          $this->statsProcessor->updateTeamEventSkill("1", "team|loss", 1);
-          $this->statsProcessor->updateTeamEventSkill("2", "team|wins", 1);
+          $this->playerSkillProcessor->updateTeamEventSkill("1", "team|loss", 1);
+          $this->playerSkillProcessor->updateTeamEventSkill("2", "team|wins", 1);
         }
       }
       return true;
@@ -1300,7 +1302,7 @@ class VSPParserQ3A
       $this->miscStats["score"][$clientKey] = $match[1];
       $ping = $match[2];
       if (isset($this->playerInfo[$clientKey])) {
-        $this->statsProcessor->updatePlayerDataField(
+        $this->playerSkillProcessor->updatePlayerDataField(
           "avg",
           $this->playerInfo[$clientKey]["id"],
           "ping",
@@ -1354,8 +1356,8 @@ class VSPParserQ3A
     return false;
   }
 
-  // Process threewave events (CTF or weapon_stats) for specific mods.
-  function processThreewaveEvent(&$line)
+  // Process threewave events.
+  private function processThreewaveEvent(string &$line): bool
   {
     // si son eventos de ctf o weapon_stats
     if (
@@ -1383,15 +1385,15 @@ class VSPParserQ3A
     ];
     foreach ($events as $event) {
       if (preg_match("/^{$event}: (\d+)/", $line, $match)) {
-        if (isset($this->statsProcessor->players_team)) {
-          $this->statsProcessor->updatePlayerEvent(
+        if (isset($this->playerSkillProcessor->players_team)) {
+          $this->playerSkillProcessor->updatePlayerEvent(
             $match[1],
             "CTF|{$event}",
             1,
             $this->playerInfo
           );
         } else {
-          $this->statsProcessor->updatePlayerEvent(
+          $this->playerSkillProcessor->updatePlayerEvent(
             $this->playerInfo[$match[1]]["id"],
             "CTF|{$event}",
             1
@@ -1407,7 +1409,7 @@ class VSPParserQ3A
       $stats = $match[2];
       //change: acc control
       if (
-        isset($this->statsProcessor->players_team) &&
+        isset($this->playerSkillProcessor->players_team) &&
         @$this->has_acc_stats[$clientId]
       ) {
         return true;
@@ -1480,15 +1482,15 @@ class VSPParserQ3A
         }
         if ($shots > 0) {
           //change: team control
-          if (isset($this->statsProcessor->players_team)) {
-            $this->statsProcessor->updateAccuracyEvent(
+          if (isset($this->playerSkillProcessor->players_team)) {
+            $this->playerSkillProcessor->updateAccuracyEvent(
               $clientId,
               $clientId,
               "accuracy|{$weaponName}_hits",
               $hits,
               $this->playerInfo
             );
-            $this->statsProcessor->updateAccuracyEvent(
+            $this->playerSkillProcessor->updateAccuracyEvent(
               $clientId,
               $clientId,
               "accuracy|{$weaponName}_shots",
@@ -1496,13 +1498,13 @@ class VSPParserQ3A
               $this->playerInfo
             );
           } else {
-            $this->statsProcessor->updateAccuracyEvent(
+            $this->playerSkillProcessor->updateAccuracyEvent(
               $this->playerInfo[$clientId]["id"],
               $this->playerInfo[$clientId]["id"],
               "accuracy|{$weaponName}_hits",
               $hits
             );
-            $this->statsProcessor->updateAccuracyEvent(
+            $this->playerSkillProcessor->updateAccuracyEvent(
               $this->playerInfo[$clientId]["id"],
               $this->playerInfo[$clientId]["id"],
               "accuracy|{$weaponName}_shots",
@@ -1523,15 +1525,15 @@ class VSPParserQ3A
           (!strcmp($statName, "Given") || !strcmp($statName, "DG")) &&
           $statVal > 0
         ) {
-          if (isset($this->statsProcessor->players_team)) {
-            $this->statsProcessor->updatePlayerEvent(
+          if (isset($this->playerSkillProcessor->players_team)) {
+            $this->playerSkillProcessor->updatePlayerEvent(
               $clientId,
               "damage given",
               $statVal,
               $this->playerInfo
             );
           } else {
-            $this->statsProcessor->updatePlayerEvent(
+            $this->playerSkillProcessor->updatePlayerEvent(
               $this->playerInfo[$clientId]["id"],
               "damage given",
               $statVal
@@ -1542,15 +1544,15 @@ class VSPParserQ3A
           (!strcmp($statName, "Recvd") || !strcmp($statName, "DR")) &&
           $statVal > 0
         ) {
-          if (isset($this->statsProcessor->players_team)) {
-            $this->statsProcessor->updatePlayerEvent(
+          if (isset($this->playerSkillProcessor->players_team)) {
+            $this->playerSkillProcessor->updatePlayerEvent(
               $clientId,
               "damage taken",
               $statVal,
               $this->playerInfo
             );
           } else {
-            $this->statsProcessor->updatePlayerEvent(
+            $this->playerSkillProcessor->updatePlayerEvent(
               $this->playerInfo[$clientId]["id"],
               "damage taken",
               $statVal
@@ -1561,15 +1563,15 @@ class VSPParserQ3A
           (!strcmp($statName, "TeamDmg") || !strcmp($statName, "TD")) &&
           $statVal > 0
         ) {
-          if (isset($this->statsProcessor->players_team)) {
-            $this->statsProcessor->updatePlayerEvent(
+          if (isset($this->playerSkillProcessor->players_team)) {
+            $this->playerSkillProcessor->updatePlayerEvent(
               $clientId,
               "damage to team",
               $statVal,
               $this->playerInfo
             );
           } else {
-            $this->statsProcessor->updatePlayerEvent(
+            $this->playerSkillProcessor->updatePlayerEvent(
               $this->playerInfo[$clientId]["id"],
               "damage to team",
               $statVal
@@ -1580,7 +1582,7 @@ class VSPParserQ3A
         $stats = substr($stats, strlen($sMatch[0]));
       }
       //change: acc control
-      if (isset($this->statsProcessor->players_team)) {
+      if (isset($this->playerSkillProcessor->players_team)) {
         $this->has_acc_stats[$clientId] = true;
       }
       //endchange
@@ -1590,13 +1592,13 @@ class VSPParserQ3A
   }
 
   // Process freeze events.
-  function processFreezeEvent(&$line)
+  private function processFreezeEvent(string &$line): bool
   {
     if (preg_match("/^Round starts/", $line, $match)) {
       return true;
     } elseif (preg_match("/^Exit: Map voting complete/", $line, $match)) {
       debugPrint("3wave portal game, ignored\n");
-      $this->statsProcessor->clearProcessorData();
+      $this->playerSkillProcessor->clearProcessorData();
       $this->gameInProgress = false;
       return true;
     } elseif (
@@ -1665,13 +1667,13 @@ class VSPParserQ3A
       }
       $clientKey = $this->miscStats["client_id_of_last_scanned_stats"];
       if ($shots > 0) {
-        $this->statsProcessor->updateAccuracyEvent(
+        $this->playerSkillProcessor->updateAccuracyEvent(
           $this->playerInfo[$clientKey]["id"],
           $this->playerInfo[$clientKey]["id"],
           "accuracy|{$weapon}_hits",
           $hits
         );
-        $this->statsProcessor->updateAccuracyEvent(
+        $this->playerSkillProcessor->updateAccuracyEvent(
           $this->playerInfo[$clientKey]["id"],
           $this->playerInfo[$clientKey]["id"],
           "accuracy|{$weapon}_shots",
@@ -1687,13 +1689,13 @@ class VSPParserQ3A
       $value = $match[2];
       $clientKey = $this->miscStats["client_id_of_last_scanned_stats"];
       if (!strcmp($code, "DG") && $value > 0) {
-        $this->statsProcessor->updatePlayerEvent(
+        $this->playerSkillProcessor->updatePlayerEvent(
           $this->playerInfo[$clientKey]["id"],
           "damage given",
           $value
         );
       } elseif (!strcmp($code, "DT") && $value > 0) {
-        $this->statsProcessor->updatePlayerEvent(
+        $this->playerSkillProcessor->updatePlayerEvent(
           $this->playerInfo[$clientKey]["id"],
           "damage taken",
           $value
@@ -1706,7 +1708,7 @@ class VSPParserQ3A
   }
 
   // Process client details.
-  function processClientDetails(&$line)
+  private function processClientDetails(string &$line): bool
   {
     if (preg_match("/^ClientDetails: (.*)/", $line, $match)) {
       $details = $match[1];
@@ -1743,7 +1745,7 @@ class VSPParserQ3A
   }
 
   // Process client connect or chat (used to parse variables from connection info).
-  function processClientConnectOrChat(&$line)
+  private function processClientConnectOrChat(string &$line): bool
   {
     // si es conección de cliente o es chat del cliente (no sé qué relación pueden tener)
     if (preg_match("/^ClientConnect: (\d+) (.*)/", $line, $match)) {
@@ -1809,7 +1811,7 @@ class VSPParserQ3A
         }
         $chatMsg = strtr($chatMsg, $this->translationData["char_trans"]);
         //endchange
-        $this->statsProcessor->updatePlayerQuote(
+        $this->playerSkillProcessor->updatePlayerQuote(
           $this->playerInfo[$clientId]["id"],
           $this->removeColorCodes($chatMsg)
         );
@@ -1820,7 +1822,7 @@ class VSPParserQ3A
   }
 
   // Process RA3 events.
-  function processRA3Event(&$line)
+  private function processRA3Event(string &$line): bool
   {
     // si descongela (oO, no sabía esto)
     if (
@@ -1844,15 +1846,15 @@ class VSPParserQ3A
         isset($this->playerInfo[$attacker]["id"]) &&
         isset($this->playerInfo[$victim]["id"])
       ) {
-        if (isset($this->statsProcessor->players_team)) {
-          $this->statsProcessor->updatePlayerEvent(
+        if (isset($this->playerSkillProcessor->players_team)) {
+          $this->playerSkillProcessor->updatePlayerEvent(
             $attacker,
             "THAW",
             1,
             $this->playerInfo
           ); // lanza el evento THAW
         } else {
-          $this->statsProcessor->updatePlayerEvent(
+          $this->playerSkillProcessor->updatePlayerEvent(
             $this->playerInfo[$attacker]["id"],
             "THAW",
             1
@@ -1866,7 +1868,7 @@ class VSPParserQ3A
   }
 
   // Process UT events (preliminary UT processing).
-  function processUTEventPre(&$line)
+  private function processUTEventPre(string &$line): bool
   {
     if (preg_match("/^Warmup:/", $line, $match)) {
       return true;
@@ -1912,7 +1914,7 @@ class VSPParserQ3A
   }
 
   // Process UT events.
-  function processUTEvent(&$line)
+  private function processUTEvent(string &$line): bool
   {
     if (preg_match("/^ClientUserinfoChanged: (\d+) (.*)/", $line, $match)) {
       $clientId = $match[1];
@@ -1973,7 +1975,7 @@ class VSPParserQ3A
       $chatMsg = substr($line, strlen($match[0]));
       $clientId = $match[1];
       if (isset($this->playerInfo[$clientId]["id"])) {
-        $this->statsProcessor->updatePlayerQuote(
+        $this->playerSkillProcessor->updatePlayerQuote(
           $this->playerInfo[$clientId]["id"],
           $this->removeColorCodes($chatMsg)
         );
@@ -1984,7 +1986,7 @@ class VSPParserQ3A
   }
 
   // Dispatch game type–specific event processing.
-  function dispatchGameTypeEvent(&$line)
+  private function dispatchGameTypeEvent(string &$line): bool
   {
     // si son eventos especiales de cada mod
     if (
@@ -2051,7 +2053,7 @@ class VSPParserQ3A
   }
 
   // Change the client's GUID.
-  function isClientGuid(&$line)
+  private function isClientGuid(string &$line): bool
   {
     if (!preg_match("/^ClientGuid: (\d+) (.*)/", $line, $matches)) {
       return false;
@@ -2066,7 +2068,7 @@ class VSPParserQ3A
   }
 
   // Extract timestamp from the beginning of a line.
-  function extractTimestamp(&$line)
+  private function extractTimestamp(string &$line): bool
   {
     // obtiene la fecha de la línea
     if (preg_match("/^\[(\d+[\\:\\.]\d+[\\:\\.]\d+)\] */", $line, $match)) {
@@ -2086,13 +2088,13 @@ class VSPParserQ3A
   }
 
   // Stub for unknown processing.
-  function Fa8539cfc(&$line)
+  private function Fa8539cfc(string &$line): bool
   {
     return false;
   }
 
   // Main log line processor – dispatches to various event handlers.
-  function processLogLine(&$line)
+  private function processLogLine(string &$line): void
   {
     // parsea la línea
     $this->extractTimestamp($line); // obtiene la fecha
@@ -2121,7 +2123,7 @@ class VSPParserQ3A
                             foreach ($matches as $playerId) {
                                 if (isset($this->playerInfo[$playerId]['id'])) {
                                     $id = $this->playerInfo[$playerId]['id'];
-                                    if (!isset($this->statsProcessor->playerStats[$id])) {
+                                    if (!isset($this->playerSkillProcessor->playerStats[$id])) {
                                         $dummy = "ClientBegin: ".$playerId;
                                         $this->processClientBegin($dummy);
                                     }
