@@ -1,18 +1,20 @@
 services:
   db:
-      networks:
-        - vsp
-      environment:
-        MYSQL_DATABASE: ${VSP_DB_NAME}
-        MYSQL_USER: ${VSP_DB_USERNAME}
-        MYSQL_PASSWORD: ${VSP_DB_PASSWORD}
+    restart: unless-stopped
+    networks:
+      - workspace_vsp
+    environment:
+      MYSQL_DATABASE: ${VSP_DB_NAME}
+      MYSQL_USER: ${VSP_DB_USERNAME}
+      MYSQL_PASSWORD: ${VSP_DB_PASSWORD}
   web:
     build: .
     # ports:
       # supervisor web gui would be available on port 9001
       # - 9001:9001
+    restart: unless-stopped
     networks:
-      - vsp
+      - workspace_vsp
     volumes:
       - ./osp.log:/vsp/games.log
     environment:
@@ -35,4 +37,5 @@ services:
       WEB_SITE_NAME: ${WEB_SITE_NAME}
 
 networks:
-  vsp:
+  workspace_vsp:
+    external: true
