@@ -7,12 +7,12 @@ Related GitHub repository:
 
 ## How To run the Docker Compose Stack
 
-1. copy [docker-compose.yml] and [docker-compose.override.yml] to your disk into the same folder
+1. copy [docker-compose.yml] and to your disk into the same folder
 1. configure the container (see below)
 1. run the docker stack
 
 ```sh
-docker-compose up -d
+docker compose up -d
 ```
 
 The configured games.log will be checked every 15 minutes for new games.
@@ -51,7 +51,7 @@ services:
 
 ### VSP configuration
 
-The parser can be configured with the following ENV variabels. They need to be placed in _evnironment_ section of the _web_ service.
+The parser can be configured with the following ENV variabels. They need to be placed in _environment_ section of the _web_ service.
 
 #### LOGTYPE
 
@@ -109,10 +109,11 @@ No default value, to enable this feature, set a password with at least 6 charact
 All VSP commands can be called from the commandline and from the browser. The docker image comes with the following [cronjob].
 
 The webinterface is available under the following url: http://yourserver.com/vsp.php.
+Make sure to set a password in [password.inc.php].
 
 ### VSP Stats page configuration
 
-The VSP Stats page can be configured with the following ENV variabels. They need to be placed in _evnironment_ section of the _web_ service.
+The VSP Stats page can be configured with the following ENV variabels. They need to be placed in _environment_ section of the _web_ service.
 
 #### SERVER_TITLE
 
@@ -224,7 +225,7 @@ Mount it into the image.
     <http://yourserver.com/pub/themes/bismarck/index.php?config=cfg-ra3.php>
 
 [docker-compose.yml]: https://github.com/evilru/quake3-vsp-stats/blob/master/docker-compose.yml
-[docker-compose.override.yml]: https://github.com/evilru/quake3-vsp-stats/blob/master/docker-compose.override.yml
 [cronjob]: https://github.com/evilru/quake3-vsp-stats/blob/master/docker/import-cron
 [pub/configs/cfg-default.php]: https://github.com/evilru/quake3-vsp-stats/blob/master/pub/configs/cfg-default.php
 [import script]: https://github.com/evilru/quake3-vsp-stats/blob/master/docker/import.sh
+[password.inc.php]: https://github.com/evilru/quake3-vsp-stats/blob/master/password.inc.php
