@@ -1,5 +1,11 @@
 .*
 *.log
-docker-compose.yml
 Dockerfile
-docker_debug
+Taskfile.yml
+phpunit.xml
+Dockerfile
+docker-compose*
+composer*
+tests
+vendor
+coverage
