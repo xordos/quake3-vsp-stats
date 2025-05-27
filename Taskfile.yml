@@ -12,13 +12,31 @@ tasks:
     silent: true
 
   # Development tasks
-  dev:
+  dev:start:
     desc: Start development environment
     cmds:
       - docker compose -f docker-compose.yml -f docker-compose.local.yml up -d db
-      - task: serve
+      - task: dev:php
 
-  serve:
+  dev:stop:
+    desc: Stop development environment
+    cmds:
+      - docker compose -f docker-compose.yml -f docker-compose.local.yml stop db
+
+  docker:build:
+    desc: Build Docker images
+    cmds:
+      - docker build . -t evilru/quake3-vsp-stats:latest
+  docker:start:
+    desc: Start Docker containers
+    cmds:
+      - docker compose -f docker-compose.yml -f docker-compose.local.yml up -d {{.CLI_ARGS}}
+  docker:stop:
+    desc: Stop Docker containers
+    cmds:
+      - docker compose -f docker-compose.yml -f docker-compose.local.yml down
+
+  dev:php:
     desc: Start PHP development server
     cmds:
       - "{{.PHP}} -S 0.0.0.0:8000 -t pub/"
