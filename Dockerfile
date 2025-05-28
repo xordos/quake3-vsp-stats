@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.4
+# syntax=docker/dockerfile:1
 FROM php:7.4.33-apache
 # FROM php:8-apache
 
