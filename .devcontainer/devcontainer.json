@@ -38,7 +38,6 @@
         "php.problems.exclude": {
           "vendor/": true
         },
-        "terminal.integrated.defaultProfile.linux": "bash",
         "editor.rulers": [
           80,
           120
