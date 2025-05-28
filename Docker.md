@@ -7,9 +7,9 @@ Related GitHub repository:
 
 ## How To run the Docker Compose Stack
 
-1. copy [docker-compose.yml] and to your disk into the same folder
+1. copy [docker-compose.yml] to your disk
 1. configure the container (see below)
-1. run the docker stack
+1. run the docker compose stack (from the folder where you placed _docker-compose.yml_)
 
 ```sh
 docker compose up -d
