@@ -2385,6 +2385,7 @@ function populateIp2countryTable(): void
   flushOutputBuffers();
 }
 
+const LOG_READ_SIZE = 1024;
 //change: database-driven savestate
 function save_savestate(&$parser)
 {

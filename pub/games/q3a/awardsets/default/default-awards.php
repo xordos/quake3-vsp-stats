@@ -337,13 +337,13 @@ $awardset['shame_death_strike']['sql'][0]          = "select playerID, countryCo
 //
 $allweaps_id = md5(time()); // haha, i must be a little paranoic xD
 
-/*
 $awardset['accuracy_set_table']['sql'][0]    = "drop table {$tp}awardsweaponshots";
 
 $awardset['accuracy_set_table']['sql'][1]    = "CREATE TABLE {$tp}awardsweaponshots (
                                                 playerID varchar(100) NOT NULL default ''
                                                 ,weaponID varchar(100) NOT NULL default ''
                                                 ,shots int(10) unsigned default '0'
+                                                ,games int(10) unsigned default '0'
                                                 ,PRIMARY KEY  (playerID,weaponID)
                                               ) ENGINE=MyISAM
                                               ";
@@ -352,6 +352,7 @@ $awardset['accuracy_set_table']['sql'][2]    = "insert into {$tp}awardsweaponsho
                                               select {$tp}playerprofile.playerID,
                                                     '{$allweaps_id}' as weaponID,
                                                     sum(eventValue) as shots
+                                                    ,{$tp}playerprofile.games as games
                                               from {$tp}eventdata2d_total,{$tp}playerprofile
                                               where {$tp}playerprofile.games>$avg_games and
                                                     eventName LIKE '%_shots' and
@@ -365,6 +366,7 @@ $awardset['accuracy__v_weapons_populate_table']['sql'][0]  = "insert into {$tp}a
                                                               select {$tp}playerprofile.playerID,
                                                                     '_v_weapons' as weaponID,
                                                                     sum(eventValue) as shots
+                                                                    ,{$tp}playerprofile.games as games
                                                               from {$tp}eventdata2d_total,{$tp}playerprofile
                                                               where {$tp}playerprofile.games>$avg_games and
                                                                     eventName='_v_weapons_shots' and
@@ -427,6 +429,5 @@ $awardset['accuracyALLWEAPONS']['sql'][0]               = "select {$tp}playerpro
                                                            ";
 
 
-*/
 
 ?>
